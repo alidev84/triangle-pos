@@ -67,9 +67,10 @@
                                             <label for="payment_method">Payment Method <span class="text-danger">*</span></label>
                                             <select class="form-control" name="payment_method" id="payment_method" required>
                                                 <option {{ $saleReturnPayment->payment_method == 'Cash' ? 'selected' : '' }} value="Cash">Cash</option>
-                                                <option {{ $saleReturnPayment->payment_method == 'Credit Card' ? 'selected' : '' }} value="Credit Card">Credit Card</option>
                                                 <option {{ $saleReturnPayment->payment_method == 'Bank Transfer' ? 'selected' : '' }} value="Bank Transfer">Bank Transfer</option>
-                                                <option {{ $saleReturnPayment->payment_method == 'Cheque' ? 'selected' : '' }} value="Cheque">Cheque</option>
+                                                <option {{ $saleReturnPayment->payment_method == 'Digital Wallet' ? 'selected' : '' }} value="Digital Wallet">Digital Wallet</option>
+                                                <option {{ $saleReturnPayment->payment_method == 'UPI' ? 'selected' : '' }} value="UPI">UPI</option>
+                                                <option {{ $saleReturnPayment->payment_method == 'Net Banking' ? 'selected' : '' }} value="Net Banking">Net Banking</option>
                                                 <option {{ $saleReturnPayment->payment_method == 'Other' ? 'selected' : '' }} value="Other">Other</option>
                                             </select>
                                         </div>

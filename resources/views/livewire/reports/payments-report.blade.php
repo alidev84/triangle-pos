@@ -46,9 +46,10 @@
                                     <select wire:model="payment_method" class="form-control" name="payment_method">
                                         <option value="">Select Payment Method</option>
                                         <option value="Cash">Cash</option>
-                                        <option value="Credit Card">Credit Card</option>
                                         <option value="Bank Transfer">Bank Transfer</option>
-                                        <option value="Cheque">Cheque</option>
+                                        <option value="Digital Wallet">Digital Wallet</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="Net Banking">Net Banking</option>
                                         <option value="Other">Other</option>
                                     </select>
                                 </div>

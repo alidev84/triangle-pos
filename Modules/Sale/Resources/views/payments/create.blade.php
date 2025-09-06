@@ -66,9 +66,10 @@
                                             <label for="payment_method">Payment Method <span class="text-danger">*</span></label>
                                             <select class="form-control" name="payment_method" id="payment_method" required>
                                                 <option value="Cash">Cash</option>
-                                                <option value="Credit Card">Credit Card</option>
                                                 <option value="Bank Transfer">Bank Transfer</option>
-                                                <option value="Cheque">Cheque</option>
+                                                <option value="Digital Wallet">Digital Wallet</option>
+                                                <option value="UPI">UPI</option>
+                                                <option value="Net Banking">Net Banking</option>
                                                 <option value="Other">Other</option>
                                             </select>
                                         </div>

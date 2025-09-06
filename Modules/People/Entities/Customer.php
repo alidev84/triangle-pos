@@ -12,6 +12,21 @@ class Customer extends Model
 
     protected $guarded = [];
 
+    public function billingReports()
+    {
+        return $this->hasMany(CustomerBillingReport::class);
+    }
+
+    public function isWholesale()
+    {
+        return $this->customer_type === 'wholesale';
+    }
+
+    public function isRetailer()
+    {
+        return $this->customer_type === 'retailer';
+    }
+
     protected static function newFactory() {
         return \Modules\People\Database\factories\CustomerFactory::new();
     }

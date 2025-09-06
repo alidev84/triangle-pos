@@ -62,10 +62,19 @@
                             </div>
 
                             <div class="form-row">
-                                <div class="col-lg-12">
+                                <div class="col-lg-6">
                                     <div class="form-group">
                                         <label for="address">Address <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" name="address" required value="{{ $customer->address }}">
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="customer_type">Customer Type <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="customer_type" required>
+                                            <option value="retailer" {{ $customer->customer_type == 'retailer' ? 'selected' : '' }}>Retailer</option>
+                                            <option value="wholesale" {{ $customer->customer_type == 'wholesale' ? 'selected' : '' }}>Wholesale</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
