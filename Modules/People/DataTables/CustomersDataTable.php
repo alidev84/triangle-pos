@@ -16,9 +16,22 @@ class CustomersDataTable extends DataTable
     public function dataTable($query) {
         return datatables()
             ->eloquent($query)
+            ->addColumn('customer_type', function ($data) {
+                $badgeClass = $data->customer_type == 'wholesale' ? 'badge-primary' : 'badge-secondary';
+                return '<span class="badge ' . $badgeClass . '">' . ucfirst($data->customer_type) . '</span>';
+            })
+            ->addColumn('billing_action', function ($data) {
+                if ($data->customer_type == 'wholesale') {
+                    return '<a href="' . route('customers.billing.show', $data->id) . '" class="btn btn-sm btn-info">
+                                <i class="bi bi-receipt"></i> Billing
+                            </a>';
+                }
+                return '-';
+            })
             ->addColumn('action', function ($data) {
                 return view('people::customers.partials.actions', compact('data'));
-            });
+            })
+            ->rawColumns(['customer_type', 'billing_action', 'action']);
     }
 
     public function query(Customer $model) {
@@ -55,6 +68,18 @@ class CustomersDataTable extends DataTable
                 ->className('text-center align-middle'),
 
             Column::make('customer_phone')
+                ->className('text-center align-middle'),
+
+            Column::computed('customer_type')
+                ->title('Type')
+                ->exportable(false)
+                ->printable(false)
+                ->className('text-center align-middle'),
+
+            Column::computed('billing_action')
+                ->title('Billing')
+                ->exportable(false)
+                ->printable(false)
                 ->className('text-center align-middle'),
 
             Column::computed('action')

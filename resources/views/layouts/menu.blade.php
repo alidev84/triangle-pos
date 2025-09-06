@@ -221,11 +221,21 @@
                         <i class="c-sidebar-nav-icon bi bi-people-fill" style="line-height: 1;"></i> Customers
                     </a>
                 </li>
+                <li class="c-sidebar-nav-item">
+                    <a class="c-sidebar-nav-link {{ request()->routeIs('customers.billing.*') ? 'c-active' : '' }}" href="{{ route('customers.billing.index') }}">
+                        <i class="c-sidebar-nav-icon bi bi-receipt" style="line-height: 1;"></i> Customer Billing
+                    </a>
+                </li>
             @endcan
             @can('access_suppliers')
                 <li class="c-sidebar-nav-item">
                     <a class="c-sidebar-nav-link {{ request()->routeIs('suppliers.*') ? 'c-active' : '' }}" href="{{ route('suppliers.index') }}">
                         <i class="c-sidebar-nav-icon bi bi-people-fill" style="line-height: 1;"></i> Suppliers
+                    </a>
+                </li>
+                <li class="c-sidebar-nav-item">
+                    <a class="c-sidebar-nav-link {{ request()->routeIs('suppliers.billing.*') ? 'c-active' : '' }}" href="{{ route('suppliers.billing.index') }}">
+                        <i class="c-sidebar-nav-icon bi bi-receipt" style="line-height: 1;"></i> Supplier Billing
                     </a>
                 </li>
             @endcan

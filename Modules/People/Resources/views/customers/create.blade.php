@@ -61,10 +61,19 @@
                             </div>
 
                             <div class="form-row">
-                                <div class="col-lg-12">
+                                <div class="col-lg-6">
                                     <div class="form-group">
                                         <label for="address">Address <span class="text-danger">*</span></label>
                                         <input type="text" class="form-control" name="address" required>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="form-group">
+                                        <label for="customer_type">Customer Type <span class="text-danger">*</span></label>
+                                        <select class="form-control" name="customer_type" required>
+                                            <option value="retailer">Retailer</option>
+                                            <option value="wholesale">Wholesale</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>

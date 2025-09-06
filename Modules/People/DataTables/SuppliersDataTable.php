@@ -16,9 +16,15 @@ class SuppliersDataTable extends DataTable
     public function dataTable($query) {
         return datatables()
             ->eloquent($query)
+            ->addColumn('billing_action', function ($data) {
+                return '<a href="' . route('suppliers.billing.show', $data->id) . '" class="btn btn-sm btn-info">
+                            <i class="bi bi-receipt"></i> Billing
+                        </a>';
+            })
             ->addColumn('action', function ($data) {
                 return view('people::suppliers.partials.actions', compact('data'));
-            });
+            })
+            ->rawColumns(['billing_action', 'action']);
     }
 
     public function query(Supplier $model) {
@@ -55,6 +61,12 @@ class SuppliersDataTable extends DataTable
                 ->className('text-center align-middle'),
 
             Column::make('supplier_phone')
+                ->className('text-center align-middle'),
+
+            Column::computed('billing_action')
+                ->title('Billing')
+                ->exportable(false)
+                ->printable(false)
                 ->className('text-center align-middle'),
 
             Column::computed('action')
