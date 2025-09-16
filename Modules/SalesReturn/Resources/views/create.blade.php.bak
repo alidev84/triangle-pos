@@ -1,0 +1,661 @@
+@extends('layouts.app')
+
+@section('title', 'Sale Return & Modification')
+
+@section('breadcrumb')
+    <ol class="breadcrumb border-0 m-0">
+        <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{{ route('sale-returns.index') }}">Sale Returns</a></li>
+        <li class="breadcrumb-item active">Return/Modify Sale</li>
+    </ol>
+@endsection
+
+@section('content')
+    <div class="container-fluid">
+        @include('utils.alerts')
+        
+        <!-- Step 1: Search for Sale -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-search"></i> Step 1: Search Sale Transaction</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-lg" id="sale-reference" 
+                                           placeholder="Enter sale reference number or customer name" autocomplete="off">
+                                    <div class="input-group-append">
+                                        <button class="btn btn-success btn-lg" type="button" onclick="searchSale()">
+                                            <i class="bi bi-search"></i> Search Sale
+                                        </button>
+                                        <button class="btn btn-info btn-lg" type="button" onclick="showRecentSales()">
+                                            <i class="bi bi-clock-history"></i> Recent Sales
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="suggestions" class="mt-2" style="display: none;"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-info btn-lg btn-block" type="button" onclick="showRecentSales()">
+                                    <i class="bi bi-clock-history"></i> Recent Sales
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Search Results -->
+                        <div id="search-results" class="mt-3" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Transaction Details & Modification -->
+        <div id="transaction-section" class="row" style="display: none;">
+            <div class="col-12">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-receipt"></i> Step 2: Original Transaction Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Transaction Info -->
+                        <div id="transaction-info" class="row mb-4"></div>
+                        
+                        <!-- Products Table -->
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Original Qty</th>
+                                        <th>Unit Price</th>
+                                        <th>Line Total</th>
+                                        <th>Return Qty</th>
+                                        <th>New Line Total</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-table">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Summary & Confirmation -->
+        <div id="summary-section" class="row mt-4" style="display: none;">
+            <div class="col-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="bi bi-calculator"></i> Step 3: Changes Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Financial Impact</h6>
+                                        <div id="financial-summary"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-title">Inventory Impact</h6>
+                                        <div id="inventory-summary"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label for="return-reason">Reason for Return/Modification</label>
+                                    <textarea id="return-reason" class="form-control" rows="3" 
+                                              placeholder="Enter reason for this return/modification..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-center mt-4">
+                            <button class="btn btn-success btn-lg mr-3" onclick="confirmChanges()">
+                                <i class="bi bi-check-circle"></i> Confirm Changes
+                            </button>
+                            <button class="btn btn-secondary btn-lg" onclick="resetForm()">
+                                <i class="bi bi-arrow-clockwise"></i> Start Over
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+
+@push('page_scripts')
+<script>
+const currencySymbol = '{{ settings()->currency->symbol }}';
+let currentSale = null;
+let modifications = {};
+
+function searchSale() {
+    const query = document.getElementById('sale-reference').value.trim();
+    if (!query) {
+        alert('Please enter a sale reference number or customer name');
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('search-results').innerHTML = '<div class="text-center"><i class="bi bi-hourglass-split"></i> Searching...</div>';
+    document.getElementById('search-results').style.display = 'block';
+    
+    // API call with query parameter
+    fetch(`/api/sales/search?q=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.sales && data.sales.length > 0) {
+                if (data.sales.length === 1) {
+                    displaySaleDetails(data.sales[0]);
+                } else {
+                    displayMultipleSales(data.sales);
+                }
+            } else {
+                document.getElementById('search-results').innerHTML = 
+                    '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ' + (data.message || 'No sales found matching your search') + '</div>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('search-results').innerHTML = 
+                '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error searching for sale. Please try again.</div>';
+        });
+}
+
+function showRecentSales() {
+    document.getElementById('search-results').innerHTML = '<div class="text-center"><i class="bi bi-hourglass-split"></i> Loading recent sales...</div>';
+    document.getElementById('search-results').style.display = 'block';
+    
+    // Simulate API call for recent sales
+    fetch('/api/sales/recent')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayRecentSales(data.sales);
+            } else {
+                document.getElementById('search-results').innerHTML = 
+                    '<div class="alert alert-danger">Error loading recent sales</div>';
+            }
+        })
+        .catch(error => {
+            document.getElementById('search-results').innerHTML = 
+                '<div class="alert alert-danger">Error loading recent sales</div>';
+        });
+}
+
+function displayRecentSales(sales) {
+    let html = `
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    sales.forEach(sale => {
+        html += `
+            <tr>
+                <td><strong>${sale.reference}</strong></td>
+                <td>${sale.customer_name}</td>
+                <td>${sale.date}</td>
+                <td>${currencySymbol}${(sale.total_amount / 100).toFixed(2)}</td>
+                <td><span class="badge badge-${sale.status === 'Completed' ? 'success' : 'warning'}">${sale.status}</span></td>
+                <td><button class="btn btn-sm btn-primary" onclick="selectSale('${sale.reference}')">Select</button></td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table></div>';
+    document.getElementById('search-results').innerHTML = html;
+}
+
+function selectSale(saleId, saleData = null) {
+    if (saleData) {
+        currentSale = saleData;
+    } else {
+        // If no sale data provided, fetch it
+        fetch(`/api/sales/${saleId}/products`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentSale = data.sale;
+                    currentSale.products = data.products;
+                    showTransactionSection();
+                }
+            });
+        return;
+    }
+    
+    showTransactionSection();
+}
+
+function displayMultipleSales(sales) {
+    let html = `
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="bi bi-list"></i> Multiple Sales Found</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Reference</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+    `;
+    
+    sales.forEach(sale => {
+        html += `
+            <a href="#" class="list-group-item list-group-item-action" 
+               onclick="event.preventDefault(); displaySaleDetails(${JSON.stringify(sale).replace(/"/g, '&quot;')})">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1">${sale.reference} - ${sale.customer.name}</h6>
+                    <small>${new Date(sale.date).toLocaleDateString()}</small>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <small>${sale.status.toUpperCase()}</small>
+                    <strong>${currencySymbol}${parseFloat(sale.total_amount).toFixed(2)}</strong>
+                </div>
+            </a>
+        `;
+    });
+    
+    html += `
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('search-results').innerHTML = html;
+    document.getElementById('search-results').style.display = 'block';
+}
+
+function displaySaleDetails(sale) {
+    currentSale = sale;
+    modifications = {};
+    
+    // Populate transaction info
+    document.getElementById('transaction-info').innerHTML = `
+        <div class="col-md-4">
+            <p><strong>Reference:</strong> ${sale.reference}</p>
+            <p><strong>Date:</strong> ${new Date(sale.date).toLocaleDateString()}</p>
+        </div>
+        <div class="col-md-4">
+            <p><strong>Customer:</strong> ${sale.customer.name}</p>
+            <p><strong>Status:</strong> <span class="badge badge-${getStatusBadgeClass(sale.status)}">${sale.status}</span></p>
+        </div>
+        <div class="col-md-4">
+            <p><strong>Total Amount:</strong> ${currencySymbol}${parseFloat(sale.total_amount).toFixed(2)}</p>
+            <p><strong>Payment Status:</strong> <span class="badge badge-${getPaymentStatusBadgeClass(sale.payment_status)}">${sale.payment_status}</span></p>
+        </div>
+    `;
+    
+    // Populate products table
+    const productsTable = document.getElementById('products-table');
+    productsTable.innerHTML = '';
+    
+    sale.sale_details.forEach(item => {
+        const row = document.createElement('tr');
+        row.id = `product-${item.id}`;
+        row.innerHTML = `
+            <td>${item.product.name} (${item.product.code})</td>
+            <td class="text-center">${item.quantity}</td>
+            <td class="text-right">${currencySymbol}${parseFloat(item.price).toFixed(2)}</td>
+            <td class="text-right">${currencySymbol}${(item.quantity * item.price).toFixed(2)}</td>
+            <td class="text-center">
+                <div class="input-group input-group-sm" style="max-width: 120px;">
+                    <div class="input-group-prepend">
+                        <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity('${item.id}', ${item.quantity}, -1)">-</button>
+                    </div>
+                    <input type="number" id="qty-${item.id}" class="form-control text-center" 
+                           value="0" min="0" max="${item.quantity}" 
+                           onchange="updateProductModification('${item.id}', ${item.quantity}, ${item.price})">
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" type="button" onclick="updateQuantity('${item.id}', ${item.quantity}, 1)">+</button>
+                    </div>
+                </div>
+            </td>
+            <td class="text-right" id="return-total-${item.id}">${currencySymbol}0.00</td>
+        `;
+        productsTable.appendChild(row);
+    });
+    
+    // Show transaction section
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('transaction-section').style.display = 'block';
+    document.getElementById('totals-section').style.display = '';
+    
+    // Initialize modifications object
+    sale.sale_details.forEach(item => {
+        modifications[item.id] = {
+            originalQty: item.quantity,
+            returnQty: 0,
+            price: item.price
+        };
+    });
+    
+    // Scroll to transaction section
+    document.getElementById('transaction-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+function updateQuantity(productId, maxQty, change) {
+    const input = document.getElementById(`qty-${productId}`);
+    let newQty = parseInt(input.value) + change;
+    
+    // Ensure quantity is within bounds
+    newQty = Math.max(0, Math.min(maxQty, newQty));
+    
+    // Update input value
+    input.value = newQty;
+    
+    // Update modification
+    updateProductModification(productId, maxQty, modifications[productId].price);
+}
+
+function updateProductModification(productId, originalQty, unitPrice) {
+    const returnQty = parseInt(document.getElementById(`qty-${productId}`).value) || 0;
+    const newQty = originalQty - returnQty;
+    const newTotal = newQty * unitPrice;
+    
+    // Update modifications object
+    modifications[productId] = {
+        originalQty: originalQty,
+        returnQty: returnQty,
+        price: unitPrice
+    };
+    
+    // Update return total display
+    document.getElementById(`return-total-${productId}`).textContent = 
+        `${currencySymbol}${(returnQty * unitPrice).toFixed(2)}`;
+    
+    // Update summary
+    updateSummary();
+}
+
+function updateSummary() {
+    if (!currentSale) return;
+    
+    let totalReturn = 0;
+    let itemCount = 0;
+    
+    // Calculate return totals
+    Object.keys(modifications).forEach(productId => {
+        const mod = modifications[productId];
+        totalReturn += mod.returnQty * mod.price;
+        if (mod.returnQty > 0) itemCount++;
+    });
+    
+    // Update display
+    document.getElementById('items-count').textContent = itemCount;
+    document.getElementById('refund-amount').textContent = 
+        `${currencySymbol}${totalReturn.toFixed(2)}`;
+    
+    // Update totals section
+    if (currentSale.tax_amount) {
+        const taxRate = currentSale.tax_amount / currentSale.total_amount;
+        const returnTax = totalReturn * taxRate;
+        
+        document.getElementById('subtotal').textContent = 
+            `${currencySymbol}${(currentSale.total_amount - currentSale.tax_amount).toFixed(2)}`;
+        document.getElementById('tax').textContent = 
+            `${currencySymbol}${currentSale.tax_amount.toFixed(2)}`;
+        document.getElementById('total').textContent = 
+            `${currencySymbol}${currentSale.total_amount.toFixed(2)}`;
+            
+        document.getElementById('return-subtotal').textContent = 
+            `${currencySymbol}${(totalReturn - returnTax).toFixed(2)}`;
+        document.getElementById('return-tax').textContent = 
+            `${currencySymbol}${returnTax.toFixed(2)}`;
+        document.getElementById('return-total').textContent = 
+            `${currencySymbol}${totalReturn.toFixed(2)}`;
+    } else {
+        document.getElementById('subtotal').textContent = 
+            `${currencySymbol}${currentSale.total_amount.toFixed(2)}`;
+        document.getElementById('tax').textContent = 
+            `${currencySymbol}0.00`;
+        document.getElementById('total').textContent = 
+            `${currencySymbol}${currentSale.total_amount.toFixed(2)}`;
+            
+        document.getElementById('return-subtotal').textContent = 
+            `${currencySymbol}${totalReturn.toFixed(2)}`;
+        document.getElementById('return-tax').textContent = 
+            `${currencySymbol}0.00`;
+        document.getElementById('return-total').textContent = 
+            `${currencySymbol}${totalReturn.toFixed(2)}`;
+    }
+    
+    // Show/hide discount row
+    const discountRow = document.getElementById('discount-row');
+    if (currentSale.discount_amount && currentSale.discount_amount > 0) {
+        if (!discountRow) {
+            const subtotalRow = document.getElementById('subtotal-row');
+            const newRow = document.createElement('tr');
+            newRow.id = 'discount-row';
+            newRow.innerHTML = `
+                <td colspan="3" class="text-right"><strong>Discount:</strong></td>
+                <td class="text-right" id="discount">-${currencySymbol}${parseFloat(currentSale.discount_amount).toFixed(2)}</td>
+            `;
+            subtotalRow.parentNode.insertBefore(newRow, subtotalRow.nextSibling);
+        }
+    } else if (discountRow) {
+        discountRow.remove();
+    }
+}
+
+function processReturn() {
+    if (!currentSale) return;
+    
+    const reason = document.getElementById('return-reason').value;
+    const notes = document.getElementById('return-notes').value;
+    const refundMethod = document.getElementById('refund-method').value;
+    
+    if (!reason) {
+        showAlert('Please select a reason for return', 'warning');
+        return;
+    }
+    
+    // Prepare return data
+    const returnData = {
+        sale_id: currentSale.id,
+        reference: `RTN-${currentSale.reference}`,
+        reason: reason,
+        notes: notes,
+        refund_method: refundMethod,
+        items: []
+    };
+    
+    // Add items to return
+    Object.keys(modifications).forEach(productId => {
+        const mod = modifications[productId];
+        if (mod.returnQty > 0) {
+            returnData.items.push({
+                product_id: productId,
+                quantity: mod.returnQty,
+                price: mod.price
+            });
+        }
+    });
+    
+    if (returnData.items.length === 0) {
+        showAlert('Please select at least one item to return', 'warning');
+        return;
+    }
+    
+    // Show loading
+    const submitBtn = document.querySelector('button[onclick="processReturn()"]');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    
+    // Submit return
+    fetch('/api/sales/return', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify(returnData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Return processed successfully!', 'success');
+            resetForm();
+            // Optionally redirect to return details or print receipt
+            // window.location.href = `/sales-returns/${data.return_id}`;
+        } else {
+            throw new Error(data.message || 'Failed to process return');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert(error.message || 'An error occurred while processing the return', 'danger');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+    });
+}
+
+function resetForm() {
+    // Reset form fields
+    document.getElementById('sale-reference').value = '';
+    document.getElementById('transaction-info').innerHTML = '';
+    document.getElementById('products-table').innerHTML = '';
+    document.getElementById('return-reason').value = '';
+    document.getElementById('return-notes').value = '';
+    document.getElementById('refund-method').value = 'original';
+    
+    // Reset display
+    document.getElementById('search-results').style.display = 'none';
+    document.getElementById('transaction-section').style.display = 'none';
+    document.getElementById('totals-section').style.display = 'none';
+    
+    // Reset data
+    currentSale = null;
+    modifications = {};
+    
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Helper functions
+function showAlert(message, type = 'info') {
+    // Check if alert already exists
+    const existingAlert = document.querySelector('.alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.role = 'alert';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    `;
+    
+    // Add to page
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alert, container.firstChild);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+function showLoading(message) {
+    document.getElementById('search-results').style.display = 'block';
+    document.getElementById('search-results').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-2">${message}</p>
+        </div>
+    `;
+}
+
+function showNoResults(message = 'No matching sales found') {
+    document.getElementById('search-results').style.display = 'block';
+    document.getElementById('search-results').innerHTML = `
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> ${message}
+        </div>
+    `;
+}
+
+function getStatusBadgeClass(status) {
+    const statusMap = {
+        'completed': 'success',
+        'pending': 'warning',
+        'cancelled': 'danger',
+        'refunded': 'info'
+    };
+    return statusMap[status.toLowerCase()] || 'secondary';
+}
+
+function getPaymentStatusBadgeClass(status) {
+    const statusMap = {
+        'paid': 'success',
+        'unpaid': 'danger',
+        'partial': 'warning',
+        'refunded': 'info'
+    };
+    return statusMap[status.toLowerCase()] || 'secondary';
+}
+
+// Initialize typeahead for search suggestions
+$(document).ready(function() {
+    $('#sale-reference').typeahead({
+        source: function(query, process) {
+            return $.get('/api/sales/suggest', { query: query }, function(data) {
+                return process(data);
+            });
+        },
+        afterSelect: function(item) {
+            displaySaleDetails(item);
+        }
+    });
+    
+    // Auto-search when pressing enter
+    $('#sale-reference').keypress(function(e) {
+        if (e.which === 13) {
+            searchSale();
+        }
+    });
+});
+</script>
+@endpush
